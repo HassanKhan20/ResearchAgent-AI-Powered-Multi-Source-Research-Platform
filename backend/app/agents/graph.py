@@ -102,7 +102,12 @@ def build_graph(emit: Emit = _noop, providers: list[SearchProvider] | None = Non
         merged = {s["url"]: s for s in state.get("sources", [])}
         for r in found:
             merged.setdefault(r.url, r.model_dump())
-        sources = sorted(merged.values(), key=lambda s: -s["credibility"])[: settings.max_sources]
+        for s in merged.values():
+            s["relevance"] = round(h.relevance(state["question"], s), 2)
+        ranked = sorted(merged.values(), key=lambda s: -(0.6 * s["relevance"] + 0.4 * s["credibility"]))
+        # Drop off-topic hits, but never below a handful of sources.
+        relevant = [s for s in ranked if s["relevance"] >= 0.4]
+        sources = (relevant if len(relevant) >= 3 else ranked[: max(3, len(relevant))])[: settings.max_sources]
         await emit(
             "search",
             "completed",

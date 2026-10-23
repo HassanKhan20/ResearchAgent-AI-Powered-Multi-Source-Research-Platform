@@ -8,7 +8,8 @@ from .state import Claim, Contradiction, Finding
 STOPWORDS = set(
     """a an and are as at be been but by can could did do does for from had has have how i if in into is it its
     of on or our so such than that the their them then there these they this to was we were what when where which
-    while who whom why will with would you your about also more most many much over under very not no never""".split()
+    while who whom why will with would you your about also more most many much over under very not no never
+    help helps really actually true good bad better worse best thing things work works make makes get tell know long""".split()
 )
 NEGATIONS = {"not", "no", "never", "cannot", "isn't", "wasn't", "aren't", "doesn't", "didn't", "neither", "nor"}
 _SENTENCE = re.compile(r"(?<=[.!?])\s+(?=[A-Z0-9])")
@@ -58,14 +59,25 @@ def jaccard(a: str, b: str) -> float:
 
 def plan_queries(question: str, limit: int) -> list[str]:
     kws = keywords(question)
-    candidates = [" ".join(kws[:6]), question.strip().rstrip("?"), " ".join(kws[:3])]
-    candidates += [f"{kws[0]} {k}" for k in kws[1:4]] if kws else []
+    core = " ".join(kws[:5])
+    # Suffixes nudge encyclopedia/paper search toward evidence pages rather than name matches.
+    candidates = [core, f"{core} effects", f"{core} evidence", question.strip().rstrip("?")] if kws else []
     seen: list[str] = []
     for c in candidates:
         c = c.strip()
         if c and c.lower() not in (s.lower() for s in seen):
             seen.append(c)
     return seen[:limit] or [question]
+
+
+def relevance(question: str, source: dict) -> float:
+    """Share of the question's keywords that appear in the source's title or text."""
+    q = keywords(question)
+    if not q:
+        return 0.0
+    words = set(_WORD.findall(f"{source.get('title', '')} {source.get('content') or source.get('snippet', '')}".lower()))
+    # Whole-word match with a light plural tolerance, so "fasting" doesn't match "fast".
+    return sum(k in words or f"{k}s" in words or k.rstrip("s") in words for k in q) / len(q)
 
 
 def broaden_queries(question: str, previous: list[str]) -> list[str]:
