@@ -116,7 +116,9 @@ export default function Research() {
       {report && (
         <>
           <section className="glass mt-8 grid gap-6 p-6 sm:grid-cols-[auto_1fr] sm:items-center">
-            <ConfidenceRing score={report.confidence} />
+            <div className="justify-self-center sm:justify-self-auto">
+              <ConfidenceRing score={report.confidence} />
+            </div>
             <div>
               <p className={`text-sm font-medium ${confidenceTone(report.confidence).text}`}>{confidenceTone(report.confidence).label}</p>
               <div className="mt-2 text-base leading-7 text-slate-200 [&_p]:mb-0">
