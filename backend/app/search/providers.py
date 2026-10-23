@@ -59,7 +59,8 @@ class ArxivProvider:
     _ns = {"a": "http://www.w3.org/2005/Atom"}
 
     async def search(self, query: str, limit: int = 3) -> list[SearchResult]:
-        params = {"search_query": f"all:{query}", "max_results": limit, "sortBy": "relevance"}
+        terms = [t for t in query.replace('"', " ").split() if len(t) > 2][:4] or [query]
+        params = {"search_query": " AND ".join(f"all:{t}" for t in terms), "max_results": limit, "sortBy": "relevance"}
         async with _client() as client:
             resp = await client.get("https://export.arxiv.org/api/query", params=params)
             resp.raise_for_status()
