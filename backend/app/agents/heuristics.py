@@ -14,6 +14,7 @@ NEGATIONS = {"not", "no", "never", "cannot", "isn't", "wasn't", "aren't", "doesn
 _SENTENCE = re.compile(r"(?<=[.!?])\s+(?=[A-Z0-9])")
 _NUMBER = re.compile(r"\b\d[\d,]*(?:\.\d+)?\b")
 _WORD = re.compile(r"[a-z][a-z'\-]+")
+_MEASURE = re.compile(r"(?<![\d,.])(\d[\d,]*(?:\.\d+)?)\s*(?:(percent)(?![a-z])|(%)|([a-z]+))")
 
 
 def keywords(text: str) -> list[str]:
@@ -31,6 +32,16 @@ def _tokens(text: str) -> set[str]:
 def _numbers(text: str) -> set[str]:
     # Ignore 4-digit years so "built in 1368" doesn't clash with a length figure.
     return {n.replace(",", "") for n in _NUMBER.findall(text) if not re.fullmatch(r"1[0-9]{3}|20[0-9]{2}", n)}
+
+
+def _measures(text: str) -> dict[str, set[str]]:
+    """Map unit word -> numbers, e.g. "21,196 kilometres" -> {"kilometres": {"21196"}}."""
+    out: dict[str, set[str]] = {}
+    for num, pct, sym, unit in _MEASURE.findall(text.lower()):
+        if re.fullmatch(r"1[0-9]{3}|20[0-9]{2}", num):
+            continue
+        out.setdefault("percent" if (pct or sym) else unit, set()).add(num.replace(",", ""))
+    return out
 
 
 def _negated(text: str) -> bool:
@@ -96,16 +107,25 @@ def cross_check(claims: list[Claim], sources: list[dict]) -> tuple[list[Finding]
         if a.source == b.source:
             continue
         sim = jaccard(a.text, b.text)
-        if sim < 0.3:
+        ma, mb = _measures(a.text), _measures(b.text)
+        shared_units = set(ma) & set(mb)
+        # Same unit, different value, and talking about the same subject -> conflicting figures.
+        numeric_clash = sim >= 0.1 and any(not (ma[u] & mb[u]) for u in shared_units)
+        if sim < 0.3 and not numeric_clash:
             continue
-        na, nb = _numbers(a.text), _numbers(b.text)
-        numeric_clash = na and nb and not (na & nb)
+        if not numeric_clash and not shared_units:
+            na, nb = _numbers(a.text), _numbers(b.text)
+            numeric_clash = bool(na and nb and not (na & nb))
         negation_clash = _negated(a.text) != _negated(b.text) and sim >= 0.4
         if numeric_clash or negation_clash:
+            if _already_flagged(contradictions, a, b):
+                contested.update((a.id, b.id))
+                continue
             cred_a = sources[a.source - 1].get("credibility", 0.5)
             cred_b = sources[b.source - 1].get("credibility", 0.5)
             likely = "a" if cred_a - cred_b > 0.1 else "b" if cred_b - cred_a > 0.1 else "unclear"
-            topic = " ".join(sorted(_tokens(a.text) & _tokens(b.text), key=len, reverse=True)[:4])
+            shared = _tokens(a.text) & _tokens(b.text)
+            topic = " ".join([w for w in keywords(a.text) if w in shared][:5])
             kind = "different figures" if numeric_clash else "opposite conclusions"
             contradictions.append(
                 Contradiction(
@@ -141,6 +161,17 @@ def cross_check(claims: list[Claim], sources: list[dict]) -> tuple[list[Finding]
     order = {"corroborated": 0, "contested": 1, "single-source": 2}
     findings.sort(key=lambda f: (order[f.status], -len(f.sources)))
     return findings, contradictions
+
+
+def _already_flagged(existing: list[Contradiction], a: Claim, b: Claim) -> bool:
+    """True if an equivalent disagreement (same side restated by another source) is already listed."""
+    for c in existing:
+        for x, y in ((c.claim_a, c.claim_b), (c.claim_b, c.claim_a)):
+            if (x == a.text and jaccard(y, b.text) >= 0.3) or (x == b.text and jaccard(y, a.text) >= 0.3):
+                return True
+            if jaccard(x, a.text) >= 0.3 and y == b.text or jaccard(x, b.text) >= 0.3 and y == a.text:
+                return True
+    return False
 
 
 # --- scoring + writer --------------------------------------------------------
