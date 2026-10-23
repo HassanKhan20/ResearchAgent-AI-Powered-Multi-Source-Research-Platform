@@ -1,0 +1,59 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+  body {
+    background:
+      radial-gradient(1200px 600px at 10% -10%, rgba(99, 102, 241, 0.16), transparent 60%),
+      radial-gradient(900px 500px at 110% 10%, rgba(34, 211, 238, 0.09), transparent 60%),
+      #070912;
+    min-height: 100vh;
+  }
+  ::selection {
+    background: rgba(129, 140, 248, 0.35);
+  }
+}
+
+@layer components {
+  .glass {
+    @apply rounded-2xl border border-white/[0.07] bg-ink-900/70 backdrop-blur-xl;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium;
+  }
+  .gradient-text {
+    @apply bg-gradient-to-r from-brand-300 via-sky-300 to-cyan-300 bg-clip-text text-transparent;
+  }
+  .shimmer {
+    background: linear-gradient(90deg, transparent, rgba(165, 180, 252, 0.18), transparent);
+    background-size: 200% 100%;
+    @apply animate-shimmer;
+  }
+}
+
+.prose-report h2 {
+  @apply mb-3 mt-8 font-display text-lg font-semibold text-white first:mt-0;
+}
+.prose-report p {
+  @apply mb-4 leading-7 text-slate-300;
+}
+.prose-report ul {
+  @apply mb-4 space-y-2.5 pl-1;
+}
+.prose-report li {
+  @apply relative pl-5 leading-7 text-slate-300;
+}
+.prose-report li::before {
+  content: "";
+  @apply absolute left-0 top-[0.7rem] h-1.5 w-1.5 rounded-full bg-brand-400/70;
+}
+.prose-report strong {
+  @apply font-semibold text-slate-100;
+}
+.prose-report em {
+  @apply text-slate-400;
+}
