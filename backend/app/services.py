@@ -1,9 +1,11 @@
+import asyncio
 import logging
 import time
 from datetime import datetime, timezone
 
 from .agents.graph import run_research
 from .cache import get_cache
+from .config import get_settings
 from .db import SessionLocal
 from .models import Report, ResearchJob
 from .search.base import SearchProvider
@@ -23,6 +25,8 @@ async def run_job(job_id: str, providers: list[SearchProvider] | None = None) ->
         await cache.append_event(key, {"type": "step", "node": node, "status": status, "data": data, "ts": time.time()})
         # Intermediate state is cached so a reconnecting client can render partial results.
         await cache.set_json(f"job:{job_id}:latest:{node}", data, ttl=86400)
+        if delay := get_settings().step_delay:
+            await asyncio.sleep(delay)
 
     async with SessionLocal() as db:
         job = await db.get(ResearchJob, job_id)

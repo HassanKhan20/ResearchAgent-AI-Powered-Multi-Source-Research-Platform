@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     tavily_api_key: str = ""
     # When true, search providers return deterministic fixtures (used in tests / offline demos).
     offline_mode: bool = False
+    # Seconds to pause after each agent step; lets demos show the live timeline.
+    step_delay: float = 0.0
 
     max_sources: int = 12
     max_sub_queries: int = 4
